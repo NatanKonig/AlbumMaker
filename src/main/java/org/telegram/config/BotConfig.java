@@ -5,8 +5,8 @@ package org.telegram.config;
  */
 public class BotConfig {
     // Substitua pelas credenciais que você obterá do BotFather
-    private static final String BOT_USERNAME = "";
-    private static final String BOT_TOKEN = "";
+    private static final String BOT_USERNAME = "a";
+    private static final String BOT_TOKEN = "a";
 
     public static String getBotUsername() {
         return BOT_USERNAME;
