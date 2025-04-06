@@ -3,8 +3,14 @@ package org.telegram.bot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.telegram.config.BotConfig;
+import org.telegram.handler.CommandHandler;
+import org.telegram.handler.MediaHandler;
+import org.telegram.handler.CaptionHandler;
+import org.telegram.model.UserSession;
+import org.telegram.service.UserSessionService;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -13,6 +19,18 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
  */
 public class AlbumMakerBot extends TelegramLongPollingBot {
     private static final Logger logger = LoggerFactory.getLogger(AlbumMakerBot.class);
+
+    private final CommandHandler commandHandler;
+    private final MediaHandler mediaHandler;
+    private final CaptionHandler captionHandler;
+    private final UserSessionService sessionService;
+
+    public AlbumMakerBot() {
+        this.sessionService = new UserSessionService();
+        this.commandHandler = new CommandHandler(this);
+        this.mediaHandler = new MediaHandler(this, sessionService);
+        this.captionHandler = new CaptionHandler(this, sessionService);
+    }
 
     @Override
     public String getBotUsername() {
@@ -26,59 +44,54 @@ public class AlbumMakerBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        // Verificar se a atualização contém uma mensagem e se a mensagem tem texto
-        if (update.hasMessage() && update.getMessage().hasText()) {
-            String messageText = update.getMessage().getText();
-            long chatId = update.getMessage().getChatId();
+        try {
+            if (update.hasMessage()) {
+                Message message = update.getMessage();
+                long chatId = message.getChatId();
 
-            logger.info("Recebida mensagem: '{}' do chat ID: {}", messageText, chatId);
+                // Garantir que há uma sessão de usuário
+                UserSession session = sessionService.getOrCreateSession(chatId);
 
-            // Processar comandos
-            if (messageText.startsWith("/")) {
-                processarComando(messageText, chatId);
-            } else {
-                // Resposta padrão para mensagens que não são comandos
-                enviarMensagem(chatId, "Você enviou: " + messageText);
+                // Processar comandos
+                if (message.hasText() && message.getText().startsWith("/")) {
+                    commandHandler.handleCommand(message);
+                    return;
+                }
+
+                // Processar mensagens com mídia
+                if (hasMedia(message)) {
+                    mediaHandler.handleMedia(message);
+                    return;
+                }
+
+                // Processar respostas para adicionar legendas
+                if (message.hasText() && message.isReply()) {
+                    captionHandler.handleCaption(message);
+                    return;
+                }
+
+                // Mensagem padrão se não for nenhum dos casos acima
+                sendMessage(chatId, "Envie arquivos de mídia (fotos, vídeos) para criar um álbum ou use /help para ver os comandos disponíveis.");
             }
+        } catch (Exception e) {
+            logger.error("Erro ao processar update", e);
         }
     }
 
     /**
-     * Processa comandos recebidos pelo bot
+     * Verifica se a mensagem contém algum tipo de mídia
      */
-    private void processarComando(String comando, long chatId) {
-        // Extrair o comando (primeira palavra após /)
-        String[] partes = comando.split("\\s+");
-        String cmd = partes[0].toLowerCase();
-
-        switch (cmd) {
-            case "/start":
-                enviarMensagem(chatId, "Bem-vindo ao AlbumMaker Bot! Use /help para ver os comandos disponíveis.");
-                break;
-
-            case "/help":
-                enviarMensagem(chatId,
-                        "Comandos disponíveis:\n" +
-                                "/start - Iniciar o bot\n" +
-                                "/help - Mostrar esta ajuda\n" +
-                                "/sobre - Informações sobre o bot"
-                );
-                break;
-
-            case "/sobre":
-                enviarMensagem(chatId, "AlbumMaker Bot v1.0\nUm bot para criar e gerenciar álbuns de mídia no Telegram.");
-                break;
-
-            default:
-                enviarMensagem(chatId, "Comando não reconhecido. Use /help para ver os comandos disponíveis.");
-                break;
-        }
+    private boolean hasMedia(Message message) {
+        return message.hasPhoto() ||
+                message.hasVideo() ||
+                message.hasDocument() ||
+                message.hasAnimation();
     }
 
     /**
      * Método auxiliar para enviar mensagens
      */
-    private void enviarMensagem(long chatId, String texto) {
+    public void sendMessage(long chatId, String texto) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText(texto);

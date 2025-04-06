@@ -20,10 +20,17 @@ public class Main {
             // Inicializar a API do Telegram
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
 
-            // Registrar o bot
-            botsApi.registerBot(new AlbumMakerBot());
+            // Criar e registrar o bot
+            AlbumMakerBot albumMakerBot = new AlbumMakerBot();
+            botsApi.registerBot(albumMakerBot);
 
             logger.info("AlbumMaker Bot iniciado com sucesso!");
+
+            // Adicionar um gancho de desligamento para limpar recursos
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                logger.info("Desligando o AlbumMaker Bot...");
+                // Adicionar aqui qualquer limpeza necessária
+            }));
         } catch (TelegramApiException e) {
             logger.error("Erro ao iniciar o AlbumMaker Bot", e);
         }
