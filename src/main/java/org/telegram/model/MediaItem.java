@@ -11,6 +11,7 @@ public class MediaItem {
     private MediaType type;
     private LocalDateTime receivedAt;
     private String uniqueId;
+    private Integer messageId; // ID da mensagem original
 
     public enum MediaType {
         PHOTO,
@@ -19,10 +20,11 @@ public class MediaItem {
         ANIMATION
     }
 
-    public MediaItem(String fileId, String fileName, MediaType type) {
+    public MediaItem(String fileId, String fileName, MediaType type, Integer messageId) {
         this.fileId = fileId;
         this.fileName = fileName;
         this.type = type;
+        this.messageId = messageId;
         this.receivedAt = LocalDateTime.now();
         this.uniqueId = generateUniqueId();
     }
@@ -53,11 +55,16 @@ public class MediaItem {
         return uniqueId;
     }
 
+    public Integer getMessageId() {
+        return messageId;
+    }
+
     @Override
     public String toString() {
         return "MediaItem{" +
                 "type=" + type +
                 ", fileName='" + fileName + '\'' +
+                ", messageId=" + messageId +
                 ", receivedAt=" + receivedAt +
                 '}';
     }

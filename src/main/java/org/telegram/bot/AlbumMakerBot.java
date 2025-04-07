@@ -70,8 +70,10 @@ public class AlbumMakerBot extends TelegramLongPollingBot {
                     return;
                 }
 
-                // Mensagem padrão se não for nenhum dos casos acima
-                sendMessage(chatId, "Envie arquivos de mídia (fotos, vídeos) para criar um álbum ou use /help para ver os comandos disponíveis.");
+                // Se chegou aqui e não é nenhum dos casos acima, mostrar mensagem de ajuda
+                if (message.hasText()) {
+                    sendMessage(chatId, "Envie arquivos de mídia (fotos, vídeos) para criar um álbum ou use /help para ver os comandos disponíveis.");
+                }
             }
         } catch (Exception e) {
             logger.error("Erro ao processar update", e);

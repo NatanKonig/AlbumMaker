@@ -2,6 +2,7 @@ package org.telegram.model;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -32,7 +33,7 @@ public class UserSession {
     }
 
     public List<MediaItem> getPendingMedia() {
-        return pendingMedia;
+        return Collections.unmodifiableList(pendingMedia);
     }
 
     public void addMedia(MediaItem media) {
@@ -45,7 +46,9 @@ public class UserSession {
     }
 
     public void clearPendingMedia() {
-        pendingMedia.clear();
+        if (pendingMedia != null) {
+            pendingMedia.clear();
+        }
     }
 
     public Album getLastAlbum() {
