@@ -1,0 +1,8 @@
+services:
+  app:
+    image: ${DOCKER_USERNAME}/albummaker:${IMAGE_TAG}
+    container_name: albummakerbot
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+      - ./src/main/resources/config.properties:/app/src/main/resources/config.properties
