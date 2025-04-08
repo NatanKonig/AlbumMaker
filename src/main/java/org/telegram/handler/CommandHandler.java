@@ -39,10 +39,6 @@ public class CommandHandler {
                 handleHelp(chatId);
                 break;
 
-            case "/cancel":
-                handleCancel(chatId);
-                break;
-
             case "/about":
             case "/sobre":
                 handleAbout(chatId);
@@ -70,7 +66,6 @@ public class CommandHandler {
         String helpMessage = "🔍 *Comandos disponíveis:*\n\n" +
                 "/start - Iniciar o bot e ver as boas-vindas\n" +
                 "/help - Mostrar esta mensagem de ajuda\n" +
-                "/cancel - Cancelar a criação do álbum atual\n" +
                 "/about - Informações sobre o bot\n\n" +
                 "*Como usar:*\n" +
                 "1. Envie várias fotos e/ou vídeos\n" +
@@ -80,10 +75,6 @@ public class CommandHandler {
         bot.sendMessage(chatId, helpMessage);
     }
 
-    private void handleCancel(long chatId) {
-        // Lógica para cancelar a criação do álbum será implementada depois
-        bot.sendMessage(chatId, "✅ Operação atual cancelada. Você pode começar um novo álbum enviando mídias.");
-    }
 
     private void handleAbout(long chatId) {
         String aboutMessage = "📱 *AlbumMaker Bot* v1.0\n\n" +
