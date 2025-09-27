@@ -3,14 +3,18 @@ package org.telegram.handler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.telegram.bot.AlbumMakerBot;
+import org.telegram.config.BotConfig;
 import org.telegram.model.Album;
 import org.telegram.model.MediaItem;
 import org.telegram.model.UserSession;
 import org.telegram.service.UserSessionService;
+import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
+import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.media.InputMedia;
 import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
 import org.telegram.telegrambots.meta.api.objects.media.InputMediaVideo;
@@ -33,7 +37,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class MediaHandler {
     private static final Logger logger = LoggerFactory.getLogger(MediaHandler.class);
-    private static final int AUTO_ALBUM_DELAY_SECONDS = 3;
+    private static final int AUTO_ALBUM_DELAY_SECONDS = 5;
     private static final int MAX_MEDIA_PER_ALBUM = 10;
 
     private final AlbumMakerBot bot;
@@ -272,6 +276,9 @@ public class MediaHandler {
                 // Guardamos o ID da mensagem do álbum para poder modificar depois
                 album.setSentMessageId(sentMessages.get(0).getMessageId());
 
+                // Encaminhar o álbum para o grupo de backup (se configurado)
+                forwardAlbumToBackupGroup(chatId, sentMessages);
+
                 // Atualizar a sessão
                 UserSession session = sessionService.getSession(chatId);
                 if (session != null) {
@@ -368,5 +375,117 @@ public class MediaHandler {
                 logger.warn("Tipo de mídia não suportado: {}", item.getType());
                 return null;
         }
+    }
+    
+    /**
+     * Encaminha o álbum criado para o grupo de backup configurado
+     */
+    private void forwardAlbumToBackupGroup(long originalChatId, List<Message> albumMessages) {
+        if (!BotConfig.isBackupEnabled()) {
+            logger.debug("Backup não configurado, pulando encaminhamento do álbum");
+            return;
+        }
+
+        Long backupGroupId = BotConfig.getBackupGroupId();
+        if (backupGroupId == null) {
+            return;
+        }
+
+        try {
+            // Recriar o álbum no grupo de backup (sem identificar quem enviou)
+            List<InputMedia> inputMediaList = new ArrayList<>();
+            
+            // Extrair as mídias das mensagens originais do álbum
+            for (Message message : albumMessages) {
+                InputMedia media = extractInputMediaFromMessage(message);
+                if (media != null) {
+                    inputMediaList.add(media);
+                }
+            }
+            
+            if (!inputMediaList.isEmpty()) {
+                // Enviar informações contextuais (opcional, comentário simples)
+                String contextInfo = String.format("📱 Chat ID: %d | 🕐 %s", 
+                    originalChatId, 
+                    java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                );
+                
+                // Adicionar o contexto como caption na primeira mídia
+                if (inputMediaList.get(0) != null) {
+                    inputMediaList.get(0).setCaption(contextInfo);
+                }
+                
+                // Enviar como grupo de mídia (álbum)
+                SendMediaGroup mediaGroup = new SendMediaGroup();
+                mediaGroup.setChatId(backupGroupId.toString());
+                mediaGroup.setMedias(inputMediaList);
+                
+                List<Message> sentMessages = bot.execute(mediaGroup);
+                
+                logger.info("Álbum encaminhado para grupo de backup como grupo de mídia: {} mídias enviadas", 
+                           sentMessages != null ? sentMessages.size() : 0);
+            }
+                       
+        } catch (Exception e) {
+            logger.error("Erro ao encaminhar álbum para o grupo de backup", e);
+        }
+    }
+    
+    /**
+     * Extrai InputMedia de uma mensagem do álbum para reenvio
+     */
+    private InputMedia extractInputMediaFromMessage(Message message) {
+        try {
+            // Processar foto
+            if (message.hasPhoto()) {
+                List<PhotoSize> photos = message.getPhoto();
+                PhotoSize photo = photos.stream()
+                        .max(Comparator.comparing(PhotoSize::getFileSize))
+                        .orElse(null);
+                
+                if (photo != null) {
+                    InputMediaPhoto inputPhoto = new InputMediaPhoto();
+                    inputPhoto.setMedia(photo.getFileId());
+                    return inputPhoto;
+                }
+            }
+
+            // Processar vídeo
+            if (message.hasVideo()) {
+                InputMediaVideo inputVideo = new InputMediaVideo();
+                inputVideo.setMedia(message.getVideo().getFileId());
+                return inputVideo;
+            }
+
+            // Processar animação (GIF)
+            if (message.hasAnimation()) {
+                InputMediaAnimation inputAnimation = new InputMediaAnimation();
+                inputAnimation.setMedia(message.getAnimation().getFileId());
+                return inputAnimation;
+            }
+
+            // Processar documento
+            if (message.hasDocument()) {
+                InputMediaDocument inputDocument = new InputMediaDocument();
+                inputDocument.setMedia(message.getDocument().getFileId());
+                return inputDocument;
+            }
+
+        } catch (Exception e) {
+            logger.warn("Erro ao extrair mídia da mensagem {}: {}", message.getMessageId(), e.getMessage());
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Obtém informações sobre o usuário/chat para incluir no backup
+     * (Método mantido para compatibilidade, mas não usado atualmente)
+     */
+    private String getUserInfoForBackup(long chatId) {
+        return String.format("📱 Chat ID: %d | 🕐 %s", 
+            chatId, 
+            java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+        );
     }
 }

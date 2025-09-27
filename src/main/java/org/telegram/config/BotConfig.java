@@ -16,6 +16,7 @@ public class BotConfig {
 
     private static String BOT_USERNAME;
     private static String BOT_TOKEN;
+    private static Long BACKUP_GROUP_ID;
 
     static {
         loadConfig();
@@ -34,6 +35,21 @@ public class BotConfig {
             // Obter os valores de configuração
             BOT_USERNAME = properties.getProperty("bot.username");
             BOT_TOKEN = properties.getProperty("bot.token");
+            
+            // Obter o ID do grupo de backup (opcional)
+            String backupGroupIdStr = properties.getProperty("backup.group.id");
+            if (backupGroupIdStr != null && !backupGroupIdStr.trim().isEmpty()) {
+                try {
+                    BACKUP_GROUP_ID = Long.parseLong(backupGroupIdStr.trim());
+                    logger.info("Grupo de backup configurado: {}", BACKUP_GROUP_ID);
+                } catch (NumberFormatException e) {
+                    logger.warn("ID do grupo de backup inválido: {}. Funcionalidade de backup desabilitada.", backupGroupIdStr);
+                    BACKUP_GROUP_ID = null;
+                }
+            } else {
+                logger.info("Grupo de backup não configurado. Funcionalidade de backup desabilitada.");
+                BACKUP_GROUP_ID = null;
+            }
 
             if (BOT_USERNAME == null || BOT_TOKEN == null) {
                 logger.error("Credenciais do bot não encontradas no arquivo de configuração");
@@ -53,5 +69,13 @@ public class BotConfig {
 
     public static String getBotToken() {
         return BOT_TOKEN;
+    }
+    
+    public static Long getBackupGroupId() {
+        return BACKUP_GROUP_ID;
+    }
+    
+    public static boolean isBackupEnabled() {
+        return BACKUP_GROUP_ID != null;
     }
 }
